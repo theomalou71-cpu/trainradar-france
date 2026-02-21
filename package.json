@@ -1,0 +1,11 @@
+{
+  "name": "trainradar-france",
+  "version": "3.0.0",
+  "description": "TrainRadar France — Temps réel SNCF",
+  "author": "theomalou71-cpu",
+  "license": "MIT",
+  "dependencies": {
+    "gtfs-realtime-bindings": "^1.0.0",
+    "node-fetch": "^2.7.0"
+  }
+}

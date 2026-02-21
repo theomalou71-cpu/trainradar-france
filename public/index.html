@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>TrainRadar France — Temps réel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-left">
+    <div class="logo-icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <rect x="2" y="7" width="20" height="12" rx="3"/>
+        <path d="M7 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2"/>
+        <path d="M2 12h20M8 7v12M16 7v12"/>
+        <circle cx="7" cy="21" r="1.5" fill="currentColor" stroke="none"/>
+        <circle cx="17" cy="21" r="1.5" fill="currentColor" stroke="none"/>
+      </svg>
+    </div>
+    <span class="logo-text">Train<em>Radar</em></span>
+    <div class="live-pill">
+      <div class="ldot" id="ldot"></div>
+      <span id="llabel" class="mono">Connexion…</span>
+    </div>
+  </div>
+
+  <div class="topbar-stats">
+    <div class="sblock"><span class="snum mono" id="sTotal">—</span><span class="slbl">trains</span></div>
+    <div class="sdiv"></div>
+    <div class="sblock"><span class="snum mono green" id="sOk">—</span><span class="slbl">à l'heure</span></div>
+    <div class="sdiv"></div>
+    <div class="sblock"><span class="snum mono red" id="sDel">—</span><span class="slbl">retardés</span></div>
+    <div class="sdiv"></div>
+    <span class="snum mono muted" id="sClock">--:--:--</span>
+  </div>
+
+  <div class="topbar-right">
+    <button class="ibtn" id="btnRefresh" onclick="doFetch()" title="Actualiser [R]">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>
+      </svg>
+    </button>
+    <button class="ibtn" onclick="toggleSidebar()" title="Volet">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/>
+      </svg>
+    </button>
+    <a class="ghbtn" href="https://github.com/theomalou71-cpu" target="_blank" rel="noopener">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.009-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.749 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2z"/></svg>
+      theomalou71-cpu
+    </a>
+  </div>
+</header>
+
+<!-- Barre d'alertes (lente, 120s) -->
+<div class="abar" id="abar">
+  <div class="atag">⚠ ALERTES SNCF</div>
+  <div class="awrap"><div class="ascroll" id="ascroll"></div></div>
+  <button class="aclose" onclick="this.parentElement.style.display='none'">✕</button>
+</div>
+
+<div class="layout" id="layout">
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sbs">
+      <label class="sbl">Recherche</label>
+      <div class="sinput-wrap">
+        <svg class="sinput-ico" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input class="sinput" id="search" placeholder="Ville, numéro de train…" oninput="applyFilters()"/>
+      </div>
+    </div>
+
+    <div class="sbs">
+      <label class="sbl">Type de train</label>
+      <div class="chips">
+        <button class="chip on" data-t="TGV"   style="--c:#ef4444" onclick="toggleChip(this)">TGV <span class="cnt" id="cTGV"></span></button>
+        <button class="chip on" data-t="OUIGO" style="--c:#8b5cf6" onclick="toggleChip(this)">OUIGO <span class="cnt" id="cOUIGO"></span></button>
+        <button class="chip on" data-t="IC"    style="--c:#f97316" onclick="toggleChip(this)">Intercités <span class="cnt" id="cIC"></span></button>
+        <button class="chip on" data-t="TER"   style="--c:#22c55e" onclick="toggleChip(this)">TER <span class="cnt" id="cTER"></span></button>
+        <button class="chip on" data-t="RER"   style="--c:#3b82f6" onclick="toggleChip(this)">RER <span class="cnt" id="cRER"></span></button>
+        <button class="chip on" data-t="AUTRE" style="--c:#64748b" onclick="toggleChip(this)">Autre <span class="cnt" id="cAUTRE"></span></button>
+      </div>
+    </div>
+
+    <div class="sbs">
+      <label class="sbl">Statut</label>
+      <div class="chips">
+        <button class="chip on" data-s="ok"   style="--c:#22c55e" onclick="toggleChip(this)">✓ À l'heure</button>
+        <button class="chip on" data-s="late" style="--c:#ef4444" onclick="toggleChip(this)">⚠ Retardés</button>
+      </div>
+    </div>
+
+    <div class="sbs sbs-list-hd">
+      <label class="sbl">Trains actifs <span class="lcnt" id="listCount">—</span></label>
+    </div>
+
+    <div class="tlist" id="tlist">
+      <div class="empty"><div class="emico">🚄</div>Connexion à l'API SNCF…</div>
+    </div>
+
+    <div class="sbfoot">
+      <div class="cdrow">
+        <span class="mono muted" id="cdLabel">↻ 120s</span>
+        <span class="mono muted" id="lupd"></span>
+      </div>
+      <div class="rbar-wrap"><div class="rbar" id="rbar"></div></div>
+      <div class="srcnote">
+        Données : <a href="https://proxy.transport.data.gouv.fr" target="_blank" rel="noopener">GTFS-RT SNCF</a> ·
+        <a href="https://github.com/theomalou71-cpu" target="_blank" rel="noopener">theomalou71-cpu</a>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Map -->
+  <div class="mapwrap">
+    <div id="map"></div>
+
+    <div class="mctrl">
+      <button class="mbtn" onclick="swapTile()" title="Fond de carte">🗺</button>
+      <button class="mbtn" onclick="goFrance()" title="Vue France">⊙</button>
+      <button class="mbtn" id="railBtn" onclick="toggleRails()" title="Rails">🛤</button>
+    </div>
+
+    <div class="legend">
+      <div class="leg-title">Légende</div>
+      <div class="leg-row"><div class="leg-dot" style="background:#ef4444"></div>TGV / INOUI</div>
+      <div class="leg-row"><div class="leg-dot" style="background:#8b5cf6"></div>OUIGO</div>
+      <div class="leg-row"><div class="leg-dot" style="background:#f97316"></div>Intercités</div>
+      <div class="leg-row"><div class="leg-dot" style="background:#22c55e"></div>TER</div>
+      <div class="leg-row"><div class="leg-dot" style="background:#3b82f6"></div>RER</div>
+      <div class="leg-row"><div class="leg-dot" style="background:#64748b"></div>Autre</div>
+      <div class="leg-sep"></div>
+      <div class="leg-row"><div class="leg-dot" style="background:#334155;width:18px;height:3px;border-radius:2px"></div>Rails</div>
+    </div>
+
+    <div class="dpanel" id="dpanel">
+      <div class="dph">
+        <div>
+          <div class="dpid mono" id="dpid">—</div>
+          <div class="dprt" id="dproute">—</div>
+        </div>
+        <button class="dpx" onclick="closeDetail()">✕</button>
+      </div>
+      <div class="dpst" id="dpstatus"></div>
+      <div class="dpgrid" id="dpgrid"></div>
+      <div class="dpstops" id="dpstops"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
