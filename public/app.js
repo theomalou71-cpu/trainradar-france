@@ -2,7 +2,7 @@
 // github.com/theomalou71-cpu
 // Rails complets + traits orientés + logique robuste
 
-const REFRESH_SEC = 120;
+const REFRESH_SEC = 10;
 
 const TYPE_COLORS = {
   TGV:   "#ef4444",

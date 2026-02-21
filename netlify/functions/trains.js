@@ -427,7 +427,7 @@ exports.handler = async () => {
   const headers = {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
-    "Cache-Control": "public, max-age=60",
+    "Cache-Control": "public, max-age=30, s-maxage=30",
   };
 
   try {
